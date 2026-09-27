@@ -71,7 +71,7 @@ Everything that must survive restarts and updates is in **one directory**, `DATA
 |---|---|
 | `gallery.db` (+ `-wal`, `-shm`) | Users, artworks, tags, likes, settings |
 | `uploads/` | Image renditions (`<key>_full/medium/thumb.webp`) |
-| `secret_key` | Session signing key, generated on first start (unless `SECRET_KEY` is set) |
+| `secret_key` | Session signing key: 256 random bits from the OS generator, created on first start (unless `SECRET_KEY` is set). Created atomically with mode `0600`. The app refuses to start if it's empty or corrupted. **Back it up**: losing it signs everyone out. |
 | `backups/` | Automatic DB snapshot taken before every schema migration |
 | `setup_token` | Only until first-run setup completes |
 
@@ -119,7 +119,7 @@ Add a new file such as `app/migrations/002_add_collections.sql`. It runs once on
 | Variable | Default | |
 |---|---|---|
 | `SETUP_TOKEN` | random, printed to log | First-run setup code |
-| `SECRET_KEY` | auto-generated in data dir | Session signing key |
+| `SECRET_KEY` | auto-generated in data dir | Session signing key; if set, must be 32+ characters |
 | `MAX_UPLOAD_MB` | `25` | Max request size |
 | `DATA_DIR` | `./data` (`/data` in Docker) | All persistent state |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |

@@ -16,6 +16,7 @@ from werkzeug.security import generate_password_hash
 from . import settings as site_settings
 from .auth import validate_new_account
 from .db import connect, get_db
+from .keys import create_private_file
 from .security import client_ip, login_limiter
 
 bp = Blueprint("setup", __name__)
@@ -41,12 +42,9 @@ def setup_token(app) -> str:
     if env:
         return env
     f = _token_file(app)
-    if f.exists():
-        return f.read_text().strip()
-    token = "-".join(secrets.token_hex(3) for _ in range(3))
-    f.write_text(token)
-    f.chmod(0o600)
-    return token
+    if not f.exists():
+        create_private_file(f, "-".join(secrets.token_hex(3) for _ in range(3)))
+    return f.read_text().strip()
 
 
 def announce_if_needed(app) -> None:

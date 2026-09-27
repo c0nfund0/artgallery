@@ -1,25 +1,10 @@
 """Art gallery application factory."""
 import os
-import secrets
 from pathlib import Path
 
 from flask import Flask, render_template, request, url_for
 
-from . import db, security
-
-
-def _load_secret_key(data_dir: Path) -> str:
-    """Use SECRET_KEY from env, or generate one and persist it in the data dir."""
-    env_key = os.environ.get("SECRET_KEY")
-    if env_key:
-        return env_key
-    key_file = data_dir / "secret_key"
-    if key_file.exists():
-        return key_file.read_text().strip()
-    key = secrets.token_hex(32)
-    key_file.write_text(key)
-    key_file.chmod(0o600)
-    return key
+from . import db, keys, security
 
 
 def create_app(test_config: dict | None = None) -> Flask:
@@ -44,7 +29,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     )
     if test_config:
         app.config.update(test_config)
-    app.config["SECRET_KEY"] = app.config.get("SECRET_KEY") or _load_secret_key(data_dir)
+    if not app.config.get("SECRET_KEY"):
+        app.config["SECRET_KEY"] = keys.load_or_create(data_dir, os.environ.get("SECRET_KEY"))
 
     Path(app.config["UPLOAD_DIR"]).mkdir(parents=True, exist_ok=True)
 
