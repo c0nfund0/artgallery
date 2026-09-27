@@ -7,7 +7,7 @@ import time
 from collections import defaultdict, deque
 from urllib.parse import urlparse
 
-from flask import abort, g, redirect, request, session, url_for
+from flask import abort, flash, g, redirect, request, session, url_for
 from markupsafe import Markup
 
 from . import settings as site_settings
@@ -41,6 +41,15 @@ def init_app(app):
             return
         if setup_needed():
             return redirect(url_for("setup.index"))
+
+    @app.before_request
+    def force_password_change():
+        # Accounts created by an admin start with a temporary password.
+        if g.user and g.user["must_change_password"] and request.endpoint not in (
+            "auth.account", "auth.logout", "static", "healthz",
+        ):
+            flash("Please choose your own password before continuing.", "info")
+            return redirect(url_for("auth.account"))
 
     @app.before_request
     def check_csrf():

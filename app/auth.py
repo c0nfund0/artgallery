@@ -127,7 +127,7 @@ def account():
                 errors.append("New passwords do not match.")
             if not errors:
                 db.execute(
-                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
                     (generate_password_hash(new), g.user["id"]),
                 )
                 db.commit()

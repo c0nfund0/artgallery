@@ -464,6 +464,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .
 .mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .pager { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
 
+.credentials dd code { font-size: 1.05rem; padding: .2em .5em; user-select: all; }
+.add-user-form .form-actions { gap: 20px; }
 .error-page { padding: 120px 0; }
 .error-code { font-family: var(--serif); font-size: clamp(5rem, 16vw, 10rem); line-height: 1; margin: 0 0 1rem; color: var(--accent); font-style: italic; }
 .error-page .page-title { margin-bottom: 2rem; }

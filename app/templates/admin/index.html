@@ -20,6 +20,24 @@
   </div>
 
   <div class="panel">
+    <h2 class="panel-title">Add an artist</h2>
+    <p class="muted small">Creates the account with a temporary password that you pass on to the artist. They must replace it when they first sign in.</p>
+    <form method="post" action="{{ url_for('admin.create_user') }}" class="form add-user-form">
+      {{ csrf_field() }}
+      <div class="field-row">
+        <label class="field"><span>Username</span>
+          <input name="username" required pattern="[a-z0-9_]{3,30}" autocomplete="off" placeholder="e.g. helene"></label>
+        <label class="field"><span>Display name</span>
+          <input name="display_name" maxlength="60" autocomplete="off" placeholder="Helene Schjerfbeck"></label>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary btn-sm" type="submit">Create account</button>
+        <label class="check"><input type="checkbox" name="is_admin" value="1"> <span>Also make admin</span></label>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
     <h2 class="panel-title">Users</h2>
     <div class="table-wrap">
       <table class="table">
@@ -31,12 +49,13 @@
             <td>{{ u.created_at|human_date }}</td>
             <td>{{ u.published }} / {{ u.n }}</td>
             <td>{{ 'Admin' if u.is_admin else 'Artist' }}</td>
-            <td>{{ 'Active' if u.is_active else 'Disabled' }}</td>
+            <td>{{ 'Active' if u.is_active else 'Disabled' }}{% if u.must_change_password %} <span class="muted small">· temp. password</span>{% endif %}</td>
             <td class="actions">
               {% if u.id != g.user.id %}
               <form method="post" action="{{ url_for('admin.update_user', user_id=u.id) }}">{{ csrf_field() }}
                 <button class="btn btn-sm btn-ghost" name="action" value="toggle_admin">{{ 'Revoke admin' if u.is_admin else 'Make admin' }}</button>
                 <button class="btn btn-sm {{ 'btn-ghost' if not u.is_active else 'btn-danger' }}" name="action" value="toggle_active">{{ 'Enable' if not u.is_active else 'Disable' }}</button>
+                <button class="btn btn-sm btn-ghost" name="action" value="reset_password" data-confirm="Reset {{ u.display_name }}'s password? They will be signed out everywhere.">Reset password</button>
               </form>
               {% else %}<span class="muted small">You</span>{% endif %}
             </td>

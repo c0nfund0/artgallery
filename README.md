@@ -21,6 +21,7 @@ A self-hosted online art gallery. Visitors browse without an account; artists si
 
 **Admin** (created in the first-run setup, no default accounts exist)
 - Gallery settings: name, open or closed artist sign-up
+- Create artist accounts: the admin picks a username and gets a one-time temporary password to pass on; the artist must choose their own password on first sign-in. Also "reset password" for anyone who is locked out (signs them out everywhere).
 - Manage users (make admin, disable). Disabled artists' work is hidden.
 - See, publish/unpublish, edit and feature any artwork on the home page
 
@@ -83,7 +84,7 @@ Then open https://art.luodot.com and complete the first-run setup. (`deploy/Cadd
 A fresh install has **no user accounts**. Every page redirects to `/setup`, where you enter:
 - the **setup code** from the server log (or your own, preset with `SETUP_TOKEN` in `.env`)
 - the gallery name, and the admin username and password
-- whether artists may sign up themselves
+- whether artists may sign up themselves (recommended: no; add artists from the admin page instead)
 
 The setup code keeps a stranger from claiming a newly started public server before you do. Once the admin exists, `/setup` is gone for good and the code file is deleted. Sign-ups and the gallery name can be changed later under **Admin → Gallery settings**.
 
@@ -104,7 +105,7 @@ docker run --rm -v artgallery_gallery-data:/data -v "$PWD":/backup alpine tar cz
 ```
 To keep the data in a host folder instead, change the volume to `./data:/data` in `compose.yaml` and run `sudo chown -R 10001:10001 data`. The container runs as UID 10001.
 
-Recover access (create or reset an admin) from the CLI:
+Recover access if *every* admin is locked out (artists are reset from the admin page):
 ```bash
 docker compose exec gallery flask --app wsgi create-admin yourname
 ```
