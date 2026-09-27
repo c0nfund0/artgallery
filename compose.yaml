@@ -1,13 +1,21 @@
 services:
   gallery:
-    # Use the image built by CI (auto-rebuilt weekly and on every dependency update),
-    # or comment `image` and use `build: .` to build locally.
+    # Built and published by CI (.github/workflows/release.yml); updated by
+    # deploy/auto-update.sh. Use `docker compose build` to build locally instead.
     image: ${GALLERY_IMAGE:-ghcr.io/c0nfund0/artgallery:latest}
     build: .
     restart: unless-stopped
+    # Only reachable from this host: the TLS reverse proxy (nginx/Caddy) in
+    # front of it is mandatory, so the proxy-related settings below are fixed
+    # here rather than left to .env.
     ports:
       - "127.0.0.1:8000:8000"
     env_file: .env
+    environment:
+      BEHIND_PROXY: "true"
+      SESSION_COOKIE_SECURE: "true"
+      FORWARDED_ALLOW_IPS: "*"
+      WEB_CONCURRENCY: "${WEB_CONCURRENCY:-2}"
     volumes:
       - gallery-data:/data
     read_only: true
@@ -16,6 +24,17 @@ services:
     security_opt:
       - no-new-privileges:true
     cap_drop: [ALL]
+    # Hard ceiling so a burst of large uploads can't take the whole host down.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    # Without rotation, request logs grow without bound on an unattended host.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   gallery-data:

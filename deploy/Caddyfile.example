@@ -1,9 +1,10 @@
 # Caddy obtains and renews HTTPS certificates automatically.
-# Set SESSION_COOKIE_SECURE=true and BEHIND_PROXY=true in .env.
+# Alternative to nginx; replace the hostname.
 gallery.example.com {
 	encode zstd gzip
 	request_body {
 		max_size 30MB
 	}
 	reverse_proxy 127.0.0.1:8000
+	# BEHIND_PROXY and SESSION_COOKIE_SECURE are already set by compose.yaml.
 }

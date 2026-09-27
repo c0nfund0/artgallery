@@ -1,5 +1,6 @@
 """Logged-in artist area: upload, edit, publish/unpublish, delete."""
 import datetime as dt
+import shutil
 from pathlib import Path
 
 from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, url_for
@@ -7,7 +8,7 @@ from flask import Blueprint, abort, current_app, flash, g, redirect, render_temp
 from . import models
 from .db import get_db
 from .images import ImageError, delete_renditions, process_upload
-from .security import client_ip, login_required, upload_limiter
+from .security import client_ip, login_required, safe_local_url, upload_limiter
 
 bp = Blueprint("studio", __name__, url_prefix="/studio")
 
@@ -94,6 +95,8 @@ def upload():
             errors.append("Choose at least one image.")
         if len(files) > 20:
             errors.append("Upload at most 20 images at a time.")
+        if not errors and not _storage_available():
+            errors.append("The gallery's storage is full. Uploads are paused until space is freed.")
         if not errors:
             db = get_db()
             created = []
@@ -206,6 +209,11 @@ def delete(artwork_id):
     return redirect(url_for("studio.dashboard"))
 
 
+def _storage_available() -> bool:
+    free_mb = shutil.disk_usage(current_app.config["UPLOAD_DIR"]).free // (1024 * 1024)
+    return free_mb >= current_app.config["MIN_FREE_MB"]
+
+
 def _delete(art):
     get_db().execute("DELETE FROM artworks WHERE id = ?", (art["id"],))
     get_db().execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM artwork_tags)")
@@ -213,7 +221,4 @@ def _delete(art):
 
 
 def _back() -> str:
-    target = request.form.get("next", "")
-    if target.startswith("/") and not target.startswith("//"):
-        return target
-    return url_for("studio.dashboard")
+    return safe_local_url(request.form.get("next"), url_for("studio.dashboard"))

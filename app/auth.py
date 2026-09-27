@@ -1,25 +1,18 @@
 import re
-from urllib.parse import urlparse
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .db import get_db
-from .security import client_ip, login_limiter, login_required, password_version, registration_open
+from .security import (
+    client_ip, login_limiter, login_required, password_version, registration_open, safe_local_url,
+)
 
 bp = Blueprint("auth", __name__)
 
 USERNAME_RE = re.compile(r"^[a-z0-9_]{3,30}$")
 # Pre-computed hash so failed lookups take as long as real ones (no user enumeration by timing).
 _DUMMY_HASH = generate_password_hash("not-a-real-password")
-
-
-def _safe_next(target: str | None) -> str:
-    if target:
-        parsed = urlparse(target)
-        if not parsed.scheme and not parsed.netloc and target.startswith("/") and not target.startswith("//"):
-            return target
-    return url_for("studio.dashboard")
 
 
 def validate_new_account(form) -> tuple[str, str, str, list[str]]:
@@ -60,7 +53,7 @@ def login():
         if user and check_password_hash(user["password_hash"], password):
             start_session(user)
             flash(f"Welcome back, {user['display_name']}.", "success")
-            return redirect(_safe_next(request.args.get("next")))
+            return redirect(safe_local_url(request.args.get("next"), url_for("studio.dashboard")))
         if not user:
             check_password_hash(_DUMMY_HASH, password)
         error = "Incorrect username or password."
@@ -134,7 +127,7 @@ def account():
                 errors.append("New passwords do not match.")
             if not errors:
                 db.execute(
-                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
                     (generate_password_hash(new), g.user["id"]),
                 )
                 db.commit()

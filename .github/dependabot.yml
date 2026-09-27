@@ -6,6 +6,9 @@ updates:
     directory: /
     schedule: { interval: daily }
     open-pull-requests-limit: 10
+    # Wait a week before adopting a new release: malicious or broken releases
+    # are usually pulled within days. Security updates ignore this delay.
+    cooldown: { default-days: 7 }
     groups:
       python-minor-patch:
         update-types: [minor, patch]

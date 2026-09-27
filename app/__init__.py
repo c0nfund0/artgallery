@@ -21,6 +21,9 @@ def create_app(test_config: dict | None = None) -> Flask:
         UPLOAD_DIR=str(data_dir / "uploads"),
         BACKUP_DIR=str(data_dir / "backups"),
         MAX_CONTENT_LENGTH=int(os.environ.get("MAX_UPLOAD_MB", "25")) * 1024 * 1024,
+        # Refuse uploads when the data disk has less than this free, so a full
+        # disk never breaks the database (which lives on the same volume).
+        MIN_FREE_MB=int(os.environ.get("MIN_FREE_MB", "512")),
         PER_PAGE=24,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
@@ -56,10 +59,15 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.template_global()
     def page_url(page: int) -> str:
-        args = request.args.to_dict()
-        args.pop("partial", None)
+        view_args = request.view_args or {}
+        # Drop query keys that would collide with url_for's own arguments
+        # (``_external``...) or with the route's path arguments.
+        args = {
+            k: v for k, v in request.args.to_dict().items()
+            if not k.startswith("_") and k not in view_args and k != "partial"
+        }
         args["page"] = page
-        return url_for(request.endpoint, **(request.view_args or {}), **args)
+        return url_for(request.endpoint, **view_args, **args)
 
     @app.template_filter()
     def human_date(value: str | None) -> str:

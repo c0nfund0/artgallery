@@ -5,8 +5,9 @@ import secrets
 import threading
 import time
 from collections import defaultdict, deque
+from urllib.parse import urlparse
 
-from flask import abort, g, redirect, request, session, url_for
+from flask import abort, flash, g, redirect, request, session, url_for
 from markupsafe import Markup
 
 from . import settings as site_settings
@@ -40,6 +41,15 @@ def init_app(app):
             return
         if setup_needed():
             return redirect(url_for("setup.index"))
+
+    @app.before_request
+    def force_password_change():
+        # Accounts created by an admin start with a temporary password.
+        if g.user and g.user["must_change_password"] and request.endpoint not in (
+            "auth.account", "auth.logout", "static", "healthz",
+        ):
+            flash("Please choose your own password before continuing.", "info")
+            return redirect(url_for("auth.account"))
 
     @app.before_request
     def check_csrf():
@@ -94,6 +104,23 @@ def registration_open() -> bool:
     return site_settings.get("allow_registration") == "1"
 
 
+def safe_local_url(target: str | None, fallback: str) -> str:
+    """Return ``target`` only if it is a plain path on this site, else ``fallback``.
+
+    Used for every user-controlled redirect (``?next=``, hidden ``next`` fields).
+    Rejects absolute URLs, protocol-relative ``//host``, backslashes (which some
+    browsers treat as slashes) and control characters.
+    """
+    if not target or not target.startswith("/") or target.startswith("//"):
+        return fallback
+    if "\\" in target or not target.isprintable():
+        return fallback
+    parsed = urlparse(target)
+    if parsed.scheme or parsed.netloc:
+        return fallback
+    return target
+
+
 def login_required(view):
     @functools.wraps(view)
     def wrapped(*args, **kwargs):
@@ -141,6 +168,8 @@ class RateLimiter:
 
 login_limiter = RateLimiter(limit=10, window=15 * 60)
 upload_limiter = RateLimiter(limit=60, window=60 * 60)
+# Anonymous likes create rows; bound how fast one client can add them.
+like_limiter = RateLimiter(limit=30, window=60)
 
 
 def client_ip() -> str:

@@ -130,6 +130,17 @@
     })
   );
 
+  // Copy-to-clipboard buttons (admin credentials).
+  $$("[data-copy]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      if (!navigator.clipboard) return;
+      await navigator.clipboard.writeText(btn.dataset.copy);
+      const old = btn.textContent;
+      btn.textContent = "Copied ✓";
+      setTimeout(() => (btn.textContent = old), 1800);
+    })
+  );
+
   // Lightbox + keyboard navigation on artwork pages.
   const lightbox = $("[data-lightbox]");
   if (lightbox) {
