@@ -68,3 +68,41 @@ def test_reset_password_signs_user_out_everywhere(client, app):
     new_temp = re.search(r"Temporary password</dt><dd><code>([^<]+)</code>", r.get_data(as_text=True)).group(1)
     assert other.get("/studio/").status_code == 302  # old session dead
     assert login(other, "artist", new_temp).status_code == 302
+
+
+def test_admin_deletes_user_and_their_artworks(client, app):
+    import os
+    from .conftest import upload
+    setup_admin(client)
+    temp = create(client, "artist")
+    artist = app.test_client()
+    login(artist, "artist", temp)
+    artist.post("/account", data={"action": "password", "current": temp, "new": "artist-long-pass", "new2": "artist-long-pass"})
+    upload(artist, tags="onlytag")
+    upload(artist, title="Second", publish=False)
+    assert len(os.listdir(app.config["UPLOAD_DIR"])) == 6
+    with app.app_context():
+        from app.db import get_db
+        uid = get_db().execute("SELECT id FROM users WHERE username='artist'").fetchone()[0]
+
+    r = client.post(f"/admin/users/{uid}", data={"action": "delete"}, follow_redirects=True)
+    assert "Deleted Helene S and 2 artworks" in r.get_data(as_text=True)
+    assert os.listdir(app.config["UPLOAD_DIR"]) == []
+    with app.app_context():
+        from app.db import get_db
+        db = get_db()
+        assert db.execute("SELECT COUNT(*) FROM users WHERE id = ?", (uid,)).fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM artworks").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM tags WHERE name='onlytag'").fetchone()[0] == 0
+    assert artist.get("/studio/").status_code == 302  # session gone
+    assert login(artist, "artist", "artist-long-pass").status_code == 200  # can't sign in
+    assert client.get("/artist/artist").status_code == 404
+
+
+def test_admin_cannot_delete_self(client, app):
+    setup_admin(client)
+    r = client.post("/admin/users/1", data={"action": "delete"}, follow_redirects=True)
+    assert "your own account" in r.get_data(as_text=True)
+    with app.app_context():
+        from app.db import get_db
+        assert get_db().execute("SELECT COUNT(*) FROM users").fetchone()[0] == 1

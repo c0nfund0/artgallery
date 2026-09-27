@@ -22,7 +22,7 @@ A self-hosted online art gallery. Visitors browse without an account; artists si
 **Admin** (created in the first-run setup, no default accounts exist)
 - Gallery settings: name, open or closed artist sign-up
 - Create artist accounts: the admin picks a username and gets a one-time temporary password to pass on; the artist must choose their own password on first sign-in. Also "reset password" for anyone who is locked out (signs them out everywhere).
-- Manage users (make admin, disable). Disabled artists' work is hidden.
+- Manage users: make admin, disable (their work is hidden), reset password, or delete the account together with all of its artworks and image files. Admins can never delete themselves.
 - See, publish/unpublish, edit and feature any artwork on the home page
 
 **Security**

@@ -1,12 +1,13 @@
 """Admin: manage users and all artworks."""
 import secrets
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 
 from . import models
 from . import settings as site_settings
 from .db import get_db
+from .images import delete_renditions
 from .auth import USERNAME_RE
 from .security import admin_required, safe_local_url
 
@@ -80,7 +81,7 @@ def create_user():
 @admin_required
 def update_user(user_id):
     if user_id == g.user["id"]:
-        flash("You can't change your own admin status or deactivate yourself.", "error")
+        flash("You can't change, deactivate or delete your own account.", "error")
         return redirect(url_for("admin.index"))
     db = get_db()
     user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -101,6 +102,18 @@ def update_user(user_id):
         db.commit()
         return render_template("admin/credentials.html", username=user["username"],
                                display_name=user["display_name"], password=password, created=False)
+    elif action == "delete":
+        keys = [r["image_key"] for r in db.execute(
+            "SELECT image_key FROM artworks WHERE user_id = ?", (user_id,)
+        ).fetchall()]
+        # Artworks, tags links and likes cascade from the user row.
+        db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        db.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM artwork_tags)")
+        db.commit()
+        for key in keys:
+            delete_renditions(key, current_app.config["UPLOAD_DIR"])
+        flash(f"Deleted {user['display_name']} and {len(keys)} artwork{'s' if len(keys) != 1 else ''}.", "success")
+        return redirect(url_for("admin.index"))
     else:
         abort(400)
     db.commit()

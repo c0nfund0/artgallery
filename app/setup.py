@@ -28,7 +28,8 @@ def _token_file(app) -> Path:
 
 def setup_needed() -> bool:
     app = current_app._get_current_object()
-    # Users are never fully deleted, so once setup is done it stays done.
+    # An admin can never delete their own account, so once setup is done a
+    # user always exists and the flag can be cached for the process lifetime.
     if app.extensions.get("setup_done"):
         return False
     if get_db().execute("SELECT 1 FROM users LIMIT 1").fetchone():
