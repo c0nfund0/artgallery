@@ -32,6 +32,10 @@ VOLUME ["/data"]
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4).status == 200 else 1)"
+  CMD python -c "import os,urllib.request,sys; port=os.environ.get('PORT','8000'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=4).status == 200 else 1)"
 
-CMD ["gunicorn", "-c", "gunicorn.conf.py", "wsgi:app"]
+# Some deploy hosts assign a port at runtime via $PORT rather than the fixed
+# 8000 this image otherwise defaults to (see BIND in gunicorn.conf.py) —
+# gunicorn's CLI --bind takes precedence over the config file, so this
+# overrides it without touching gunicorn.conf.py's own default.
+CMD ["sh", "-c", "exec gunicorn -c gunicorn.conf.py --bind 0.0.0.0:${PORT:-8000} wsgi:app"]
