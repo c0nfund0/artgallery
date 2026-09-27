@@ -1,0 +1,5 @@
+{% from "partials/macros.html" import card %}
+{% for a in artworks %}{{ card(a, tags.get(a.id), show_artist=not artist) }}{% endfor %}
+{% if page < pages %}
+<a class="load-more btn btn-ghost" data-load-more href="{{ page_url(page + 1) }}">Load more</a>
+{% endif %}

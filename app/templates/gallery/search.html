@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import sort_select %}
+{% block title %}{% if tag %}#{{ tag }}{% elif q %}“{{ q }}”{% else %}Browse{% endif %} · {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap section">
+  <div class="page-head">
+    <p class="eyebrow">{% if tag %}Tag{% elif q %}Search{% else %}Browse{% endif %}</p>
+    <h1 class="page-title">{% if tag %}#{{ tag }}{% elif q %}“{{ q }}”{% elif medium %}{{ medium }}{% else %}All artwork{% endif %}</h1>
+    <form class="search-big" method="get" role="search">
+      <input name="q" type="search" value="{{ q }}" placeholder="Title, artist, medium or tag" aria-label="Search">
+      {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+      <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+    {% if tag or medium %}
+    <p class="active-filters">Filtered by
+      {% if tag %}<a class="chip chip-active" href="{{ url_for('gallery.search', q=q or None, medium=medium or None) }}">#{{ tag }} ×</a>{% endif %}
+      {% if medium %}<a class="chip chip-active" href="{{ url_for('gallery.search', q=q or None, tag=tag or None) }}">{{ medium }} ×</a>{% endif %}
+    </p>
+    {% endif %}
+  </div>
+  <div class="section-head">
+    <p class="muted">{{ total }} result{{ 's' if total != 1 }}</p>
+    {{ sort_select(sort) }}
+  </div>
+  {% if artworks %}
+  <div class="grid" data-grid>{% include "partials/grid_items.html" %}</div>
+  {% else %}
+  <div class="empty">
+    <p>Nothing matches that — yet.</p>
+    {% set ptags = popular_tags(12) %}
+    {% if ptags %}<p class="muted">Try one of these:</p>
+    <div class="chips center">{% for t in ptags %}<a class="chip" href="{{ url_for('gallery.search', tag=t.name) }}">#{{ t.name }}</a>{% endfor %}</div>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

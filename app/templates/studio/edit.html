@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import errors_list %}
+{% block title %}Edit “{{ art.title }}” · {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap section">
+  <div class="page-head row">
+    <div>
+      <p class="eyebrow"><a class="link" href="{{ url_for('studio.dashboard') }}">← Studio</a></p>
+      <h1 class="page-title">Edit artwork</h1>
+    </div>
+    <span class="status big {{ 'status-live' if art.is_published else 'status-draft' }}">{{ 'Published' if art.is_published else 'Draft' }}</span>
+  </div>
+  {{ errors_list(errors) }}
+  <div class="edit-layout">
+    <div class="edit-preview">
+      <a href="{{ url_for('gallery.artwork', artwork_id=art.id) }}" class="edit-image" data-color="{{ art.color }}">
+        <img src="{{ url_for('gallery.media', key=art.image_key, size='medium') }}" alt="{{ art.title }}" width="{{ art.width }}" height="{{ art.height }}">
+      </a>
+      <p class="muted small">{{ art.width }} × {{ art.height }} px · {{ art.views }} views · {{ art.like_count }} appreciations
+        {% if art.published_at %}· first published {{ art.published_at|human_date }}{% endif %}</p>
+
+      <div class="panel publish-panel">
+        <div>
+          <h2 class="panel-title">{{ 'Visible to everyone' if art.is_published else 'Private draft' }}</h2>
+          <p class="muted small">{{ 'Anyone can see this artwork in the gallery.' if art.is_published else 'Only you can see this. Publish to add it to the gallery.' }}</p>
+        </div>
+        <form method="post" action="{{ url_for('studio.publish', artwork_id=art.id) }}">
+          {{ csrf_field() }}<input type="hidden" name="next" value="{{ request.path }}">
+          <input type="hidden" name="publish" value="{{ '0' if art.is_published else '1' }}">
+          <button class="btn {{ 'btn-ghost' if art.is_published else 'btn-primary' }}" type="submit">{{ 'Unpublish' if art.is_published else 'Publish now' }}</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel">
+      <form method="post" class="form">
+        {{ csrf_field() }}
+        <label class="field"><span>Title</span>
+          <input name="title" maxlength="120" required value="{{ art.title }}"></label>
+        <div class="field-row">
+          <label class="field"><span>Medium</span>
+            <input name="medium" maxlength="60" list="mediums" value="{{ art.medium }}"></label>
+          <label class="field"><span>Year</span>
+            <input name="year" type="number" inputmode="numeric" value="{{ art.year or '' }}"></label>
+        </div>
+        {% include "studio/_mediums.html" %}
+        <label class="field"><span>Description</span>
+          <textarea name="description" rows="7" maxlength="5000">{{ art.description }}</textarea></label>
+        <label class="field"><span>Tags</span>
+          <input name="tags" value="{{ tags|join(', ') }}" placeholder="landscape, nordic, light"></label>
+        {% if g.user.is_admin %}
+        <label class="switch"><input type="checkbox" name="featured" value="1" {% if art.is_featured %}checked{% endif %}>
+          <span class="switch-ui" aria-hidden="true"></span><span>Feature on the home page</span></label>
+        {% endif %}
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Save changes</button>
+          <a class="link" href="{{ url_for('gallery.artwork', artwork_id=art.id) }}">View →</a>
+        </div>
+      </form>
+      <form method="post" action="{{ url_for('studio.delete', artwork_id=art.id) }}" class="danger-zone">
+        {{ csrf_field() }}
+        <div><strong>Delete artwork</strong><p class="muted small">This permanently removes the image and its statistics.</p></div>
+        <button class="btn btn-danger btn-sm" type="submit" data-confirm="Delete “{{ art.title }}” permanently?">Delete</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

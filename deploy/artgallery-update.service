@@ -1,0 +1,10 @@
+[Unit]
+Description=Update Art Gallery container
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+# Adjust to where you cloned the repository.
+WorkingDirectory=/opt/artgallery
+ExecStart=/opt/artgallery/deploy/auto-update.sh

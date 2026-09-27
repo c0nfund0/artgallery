@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import card %}
+{% block title %}{{ art.title }} by {{ art.display_name }} · {{ site_name }}{% endblock %}
+{% block description %}{{ art.description|truncate(150) if art.description else art.title ~ ' by ' ~ art.display_name }}{% endblock %}
+{% block meta %}
+<meta property="og:title" content="{{ art.title }} by {{ art.display_name }}">
+<meta property="og:type" content="article">
+<meta property="og:image" content="{{ url_for('gallery.media', key=art.image_key, size='medium', _external=True) }}">
+{% endblock %}
+{% block body_class %}artwork-page{% endblock %}
+{% block content %}
+<div class="artwork-layout wrap">
+  <figure class="artwork-stage" data-color="{{ art.color }}">
+    <button type="button" class="stage-btn" data-lightbox-open aria-label="View full screen">
+      <img src="{{ url_for('gallery.media', key=art.image_key, size='medium') }}"
+           srcset="{{ url_for('gallery.media', key=art.image_key, size='medium') }} 1200w, {{ url_for('gallery.media', key=art.image_key, size='full') }} 2400w"
+           sizes="(max-width: 900px) 100vw, 65vw"
+           width="{{ art.width }}" height="{{ art.height }}" alt="{{ art.title }} by {{ art.display_name }}">
+    </button>
+    {% if nav.prev %}<a class="stage-nav prev" href="{{ url_for('gallery.artwork', artwork_id=nav.prev) }}" data-key-prev aria-label="Previous work">‹</a>{% endif %}
+    {% if nav.next %}<a class="stage-nav next" href="{{ url_for('gallery.artwork', artwork_id=nav.next) }}" data-key-next aria-label="Next work">›</a>{% endif %}
+  </figure>
+
+  <aside class="artwork-info">
+    {% if not art.is_published %}<div class="alert alert-info">This is a draft. Only you{% if g.user.is_admin and g.user.id != art.user_id %} (admin){% endif %} can see it.</div>{% endif %}
+    <h1 class="artwork-title">{{ art.title }}</h1>
+    <a class="artist-line" href="{{ url_for('gallery.artist', username=art.username) }}">
+      <span class="avatar" aria-hidden="true">{{ art.display_name[:1]|upper }}</span>
+      <span><strong>{{ art.display_name }}</strong><small>View profile</small></span>
+    </a>
+
+    <dl class="specs">
+      {% if art.medium %}<div><dt>Medium</dt><dd><a href="{{ url_for('gallery.search', medium=art.medium) }}">{{ art.medium }}</a></dd></div>{% endif %}
+      {% if art.year %}<div><dt>Year</dt><dd>{{ art.year }}</dd></div>{% endif %}
+      <div><dt>Dimensions</dt><dd>{{ art.width }} × {{ art.height }} px</dd></div>
+      {% if art.published_at %}<div><dt>Published</dt><dd>{{ art.published_at|human_date }}</dd></div>{% endif %}
+    </dl>
+
+    {% if art.description %}<div class="artwork-desc">{{ art.description }}</div>{% endif %}
+
+    {% if tags %}<div class="chips">{% for t in tags %}<a class="chip" href="{{ url_for('gallery.search', tag=t) }}">#{{ t }}</a>{% endfor %}</div>{% endif %}
+
+    <div class="artwork-actions">
+      {% if art.is_published %}
+      <button type="button" class="like-btn{% if liked %} is-liked{% endif %}" data-like="{{ url_for('gallery.like', artwork_id=art.id) }}" aria-pressed="{{ 'true' if liked else 'false' }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.7 5c2 0 3.5 1.1 5.3 3 1.8-1.9 3.3-3 5.3-3 3.4 0 5.5 3.4 4.2 6.7C19.5 16.4 12 21 12 21Z"/></svg>
+        <span data-like-count>{{ art.like_count }}</span>
+      </button>
+      <span class="muted views"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>{{ art.views }} view{{ 's' if art.views != 1 }}</span>
+      <button type="button" class="btn btn-ghost btn-sm" data-share="{{ url_for('gallery.artwork', artwork_id=art.id, _external=True) }}" data-share-title="{{ art.title }}">Share</button>
+      {% endif %}
+    </div>
+
+    {% if can_manage %}
+    <div class="owner-panel">
+      <p class="eyebrow">{% if g.user.id == art.user_id %}Your artwork{% else %}Admin{% endif %}</p>
+      <div class="owner-actions">
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('studio.edit', artwork_id=art.id) }}">Edit</a>
+        <form method="post" action="{{ url_for('studio.publish', artwork_id=art.id) }}">
+          {{ csrf_field() }}<input type="hidden" name="next" value="{{ request.path }}">
+          <input type="hidden" name="publish" value="{{ '0' if art.is_published else '1' }}">
+          <button class="btn btn-sm {{ 'btn-ghost' if art.is_published else 'btn-primary' }}" type="submit">{{ 'Unpublish' if art.is_published else 'Publish' }}</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+{% if more %}
+<section class="wrap section">
+  <div class="section-head"><h2 class="section-title">More by {{ art.display_name }}</h2>
+    <a class="link" href="{{ url_for('gallery.artist', username=art.username) }}">View all →</a></div>
+  <div class="strip">{% for a in more %}{{ card(a, show_artist=False) }}{% endfor %}</div>
+</section>
+{% endif %}
+
+<dialog class="lightbox" data-lightbox aria-label="{{ art.title }}">
+  <button type="button" class="lightbox-close" data-lightbox-close aria-label="Close">×</button>
+  <img data-src="{{ url_for('gallery.media', key=art.image_key, size='full') }}" alt="{{ art.title }} by {{ art.display_name }}">
+  <p class="lightbox-caption"><strong>{{ art.title }}</strong> — {{ art.display_name }}{% if art.year %}, {{ art.year }}{% endif %}</p>
+</dialog>
+{% endblock %}

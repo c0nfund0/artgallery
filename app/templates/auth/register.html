@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import errors_list %}
+{% block title %}Join · {{ site_name }}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <p class="eyebrow">Become an exhibiting artist</p>
+  <h1 class="page-title">Create your studio</h1>
+  {{ errors_list(errors) }}
+  <form method="post" class="form">
+    {{ csrf_field() }}
+    <label class="field"><span>Username</span>
+      <input name="username" autocomplete="username" required pattern="[a-z0-9_]{3,30}" value="{{ form.get('username', '') }}" autofocus>
+      <small>Lowercase letters, numbers and underscores. Appears in your profile URL.</small></label>
+    <label class="field"><span>Display name</span>
+      <input name="display_name" autocomplete="name" maxlength="60" value="{{ form.get('display_name', '') }}" placeholder="e.g. Helene Schjerfbeck"></label>
+    <label class="field"><span>Password</span>
+      <input name="password" type="password" autocomplete="new-password" minlength="10" required>
+      <small>At least 10 characters.</small></label>
+    <label class="field"><span>Confirm password</span>
+      <input name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
+    <button class="btn btn-primary btn-block" type="submit">Create account</button>
+  </form>
+  <p class="auth-alt">Already have an account? <a class="link" href="{{ url_for('auth.login') }}">Sign in</a></p>
+</div>
+{% endblock %}

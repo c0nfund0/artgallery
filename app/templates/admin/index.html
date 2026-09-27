@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap section">
+  <div class="page-head">
+    <p class="eyebrow">Administration</p>
+    <h1 class="page-title">Gallery admin</h1>
+  </div>
+
+  <div class="panel">
+    <h2 class="panel-title">Users</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>User</th><th>Joined</th><th>Works</th><th>Role</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for u in users %}
+          <tr{% if not u.is_active %} class="is-muted"{% endif %}>
+            <td><a class="link" href="{{ url_for('gallery.artist', username=u.username) }}">{{ u.display_name }}</a> <span class="muted small">@{{ u.username }}</span></td>
+            <td>{{ u.created_at|human_date }}</td>
+            <td>{{ u.published }} / {{ u.n }}</td>
+            <td>{{ 'Admin' if u.is_admin else 'Artist' }}</td>
+            <td>{{ 'Active' if u.is_active else 'Disabled' }}</td>
+            <td class="actions">
+              {% if u.id != g.user.id %}
+              <form method="post" action="{{ url_for('admin.update_user', user_id=u.id) }}">{{ csrf_field() }}
+                <button class="btn btn-sm btn-ghost" name="action" value="toggle_admin">{{ 'Revoke admin' if u.is_admin else 'Make admin' }}</button>
+                <button class="btn btn-sm {{ 'btn-ghost' if not u.is_active else 'btn-danger' }}" name="action" value="toggle_active">{{ 'Enable' if not u.is_active else 'Disable' }}</button>
+              </form>
+              {% else %}<span class="muted small">You</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-head">
+      <h2 class="panel-title">All artworks <span class="muted">({{ total }})</span></h2>
+      <form method="get" class="inline-search"><input name="q" type="search" value="{{ q }}" placeholder="Filter…" aria-label="Filter artworks"></form>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th></th><th>Title</th><th>Artist</th><th>Status</th><th>Views</th><th></th></tr></thead>
+        <tbody>
+          {% for a in artworks %}
+          <tr>
+            <td><span class="mini-thumb" data-color="{{ a.color }}"><img src="{{ url_for('gallery.media', key=a.image_key, size='thumb') }}" alt="" loading="lazy"></span></td>
+            <td><a class="link" href="{{ url_for('gallery.artwork', artwork_id=a.id) }}">{{ a.title }}</a>{% if a.is_featured %} <span class="accent">★</span>{% endif %}</td>
+            <td>{{ a.display_name }}</td>
+            <td><span class="status {{ 'status-live' if a.is_published else 'status-draft' }}">{{ 'Published' if a.is_published else 'Draft' }}</span></td>
+            <td>{{ a.views }}</td>
+            <td class="actions">
+              <form method="post" action="{{ url_for('studio.publish', artwork_id=a.id) }}">{{ csrf_field() }}
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <button class="btn btn-sm btn-ghost" name="publish" value="{{ '0' if a.is_published else '1' }}">{{ 'Unpublish' if a.is_published else 'Publish' }}</button>
+              </form>
+              <form method="post" action="{{ url_for('admin.feature', artwork_id=a.id) }}">{{ csrf_field() }}
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <button class="btn btn-sm btn-ghost">{{ 'Unfeature' if a.is_featured else 'Feature' }}</button>
+              </form>
+              <a class="btn btn-sm btn-ghost" href="{{ url_for('studio.edit', artwork_id=a.id) }}">Edit</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">No artworks.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if total > 50 %}
+    <div class="pager">
+      {% if page > 1 %}<a class="btn btn-sm btn-ghost" href="{{ page_url(page - 1) }}">← Previous</a>{% endif %}
+      {% if page * 50 < total %}<a class="btn btn-sm btn-ghost" href="{{ page_url(page + 1) }}">Next →</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

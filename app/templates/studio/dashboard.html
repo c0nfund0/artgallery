@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Studio · {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap section">
+  <div class="page-head row">
+    <div>
+      <p class="eyebrow">Your studio</p>
+      <h1 class="page-title">Hello, {{ g.user.display_name }}</h1>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('studio.upload') }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Upload artwork</a>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="stat-n">{{ stats.total }}</span><span class="stat-l">Artworks</span></div>
+    <div class="stat"><span class="stat-n">{{ stats.published }}</span><span class="stat-l">Published</span></div>
+    <div class="stat"><span class="stat-n">{{ stats.total - stats.published }}</span><span class="stat-l">Drafts</span></div>
+    <div class="stat"><span class="stat-n">{{ stats.views }}</span><span class="stat-l">Views</span></div>
+    <div class="stat"><span class="stat-n">{{ stats.likes }}</span><span class="stat-l">Appreciations</span></div>
+  </div>
+
+  <div class="section-head">
+    <nav class="tabs" aria-label="Filter">
+      {% for key, label in [('all', 'All'), ('published', 'Published'), ('drafts', 'Drafts')] %}
+      <a href="{{ url_for('studio.dashboard', status=key) }}" {% if status == key %}aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  {% if artworks %}
+  <form method="post" action="{{ url_for('studio.bulk') }}" class="bulk-form" data-bulk>
+    {{ csrf_field() }}<input type="hidden" name="next" value="{{ request.full_path }}">
+    <div class="bulk-bar">
+      <label class="check"><input type="checkbox" data-select-all> <span>Select all</span></label>
+      <span class="muted" data-selected-count>0 selected</span>
+      <div class="bulk-actions">
+        <button class="btn btn-sm btn-ghost" name="action" value="publish" type="submit" disabled>Publish</button>
+        <button class="btn btn-sm btn-ghost" name="action" value="unpublish" type="submit" disabled>Unpublish</button>
+        <button class="btn btn-sm btn-danger" name="action" value="delete" type="submit" disabled data-confirm="Delete the selected artworks permanently?">Delete</button>
+      </div>
+    </div>
+    <ul class="studio-list">
+      {% for a in artworks %}
+      <li class="studio-item">
+        <label class="check"><input type="checkbox" name="ids" value="{{ a.id }}" aria-label="Select {{ a.title }}"></label>
+        <a class="studio-thumb" href="{{ url_for('gallery.artwork', artwork_id=a.id) }}" data-color="{{ a.color }}">
+          <img src="{{ url_for('gallery.media', key=a.image_key, size='thumb') }}" alt="" loading="lazy">
+        </a>
+        <div class="studio-meta">
+          <a class="studio-title" href="{{ url_for('studio.edit', artwork_id=a.id) }}">{{ a.title }}</a>
+          <p class="muted small">
+            {% if a.medium %}{{ a.medium }} · {% endif %}{% if a.year %}{{ a.year }} · {% endif %}
+            {{ a.views }} views · {{ a.like_count }} ♥
+            {% if a.is_featured %} · <span class="accent">★ Featured</span>{% endif %}
+          </p>
+          {% if tags[a.id] %}<p class="tag-line">{% for t in tags[a.id] %}#{{ t }} {% endfor %}</p>{% endif %}
+        </div>
+        <span class="status {{ 'status-live' if a.is_published else 'status-draft' }}">{{ 'Published' if a.is_published else 'Draft' }}</span>
+        <div class="studio-actions">
+          <button class="btn btn-sm {{ 'btn-ghost' if a.is_published else 'btn-primary' }}" type="submit"
+                  formaction="{{ url_for('studio.publish', artwork_id=a.id) }}" name="publish" value="{{ '0' if a.is_published else '1' }}">
+            {{ 'Unpublish' if a.is_published else 'Publish' }}</button>
+          <a class="btn btn-sm btn-ghost" href="{{ url_for('studio.edit', artwork_id=a.id) }}">Edit</a>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </form>
+  {% else %}
+  <div class="empty dropzone-empty">
+    <p>{% if status == 'drafts' %}No drafts.{% elif status == 'published' %}Nothing published yet.{% else %}Your studio is empty.{% endif %}</p>
+    <a class="btn btn-primary" href="{{ url_for('studio.upload') }}">Upload your first artwork</a>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

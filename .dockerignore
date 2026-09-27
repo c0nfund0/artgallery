@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+venv
+data
+tests
+scripts
+deploy
+*.md
+.env
+**/__pycache__
+.pytest_cache

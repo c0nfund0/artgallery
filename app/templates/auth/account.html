@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import errors_list %}
+{% block title %}Account · {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap narrow section">
+  <div class="page-head">
+    <p class="eyebrow">Settings</p>
+    <h1 class="page-title">Your account</h1>
+  </div>
+  {{ errors_list(errors) }}
+  <div class="panel">
+    <h2 class="panel-title">Public profile</h2>
+    <form method="post" class="form">
+      {{ csrf_field() }}<input type="hidden" name="action" value="profile">
+      <label class="field"><span>Display name</span>
+        <input name="display_name" maxlength="60" required value="{{ g.user.display_name }}"></label>
+      <label class="field"><span>Bio</span>
+        <textarea name="bio" rows="4" maxlength="1000" placeholder="Tell visitors about your practice…">{{ g.user.bio }}</textarea></label>
+      <label class="field"><span>Website</span>
+        <input name="website" type="url" maxlength="200" value="{{ g.user.website }}" placeholder="https://"></label>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Save profile</button>
+        <a class="link" href="{{ url_for('gallery.artist', username=g.user.username) }}">View public profile →</a>
+      </div>
+    </form>
+  </div>
+  <div class="panel">
+    <h2 class="panel-title">Change password</h2>
+    <form method="post" class="form">
+      {{ csrf_field() }}<input type="hidden" name="action" value="password">
+      <label class="field"><span>Current password</span>
+        <input name="current" type="password" autocomplete="current-password" required></label>
+      <div class="field-row">
+        <label class="field"><span>New password</span>
+          <input name="new" type="password" autocomplete="new-password" minlength="10" required></label>
+        <label class="field"><span>Confirm new password</span>
+          <input name="new2" type="password" autocomplete="new-password" minlength="10" required></label>
+      </div>
+      <div class="form-actions"><button class="btn btn-ghost" type="submit">Update password</button></div>
+    </form>
+  </div>
+</section>
+{% endblock %}

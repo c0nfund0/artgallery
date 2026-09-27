@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Sign in · {{ site_name }}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <p class="eyebrow">Artist studio</p>
+  <h1 class="page-title">Welcome back</h1>
+  {% if error %}<div class="alert alert-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" class="form">
+    {{ csrf_field() }}
+    <label class="field"><span>Username</span>
+      <input name="username" autocomplete="username" required autofocus value="{{ request.form.get('username', '') }}"></label>
+    <label class="field"><span>Password</span>
+      <input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+  </form>
+  {% if allow_registration %}<p class="auth-alt">New here? <a class="link" href="{{ url_for('auth.register') }}">Create an artist account</a></p>{% endif %}
+  <p class="auth-alt muted small">Browsing the gallery never requires an account.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+# Automated dependency updates. Patch/minor PRs are auto-merged once CI passes
+# (see workflows/dependabot-automerge.yml); major updates wait for a human.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule: { interval: daily }
+    open-pull-requests-limit: 10
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      actions:
+        patterns: ["*"]

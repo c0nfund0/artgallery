@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import sort_select %}
+{% block body_class %}home{% endblock %}
+{% block content %}
+{% if featured %}
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="hero-copy">
+      <p class="eyebrow">Now showing</p>
+      <h1 class="display">Art worth<br><em>slowing down</em> for.</h1>
+      <p class="lede">{{ stats.works }} work{{ 's' if stats.works != 1 }} by {{ stats.artists }} artist{{ 's' if stats.artists != 1 }}, free to explore. No account needed.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#collection">Explore the collection</a>
+        <a class="btn btn-ghost" href="{{ url_for('gallery.artists') }}">Meet the artists</a>
+      </div>
+    </div>
+    <div class="hero-mosaic mosaic-{{ featured|length }}">
+      {% for a in featured %}
+      <a class="mosaic-item" href="{{ url_for('gallery.artwork', artwork_id=a.id) }}" data-color="{{ a.color }}">
+        <img src="{{ url_for('gallery.media', key=a.image_key, size='medium' if loop.first else 'thumb') }}" alt="{{ a.title }} by {{ a.display_name }}" {% if not loop.first %}loading="lazy"{% endif %}>
+        <span class="mosaic-caption"><strong>{{ a.title }}</strong> {{ a.display_name }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% else %}
+<section class="hero hero-empty">
+  <div class="wrap narrow center">
+    <p class="eyebrow">Welcome to {{ site_name }}</p>
+    <h1 class="display">The walls are bare —<br><em>for now.</em></h1>
+    <p class="lede">No artwork has been published yet.
+      {% if g.user %}Be the first to hang something.{% elif allow_registration %}Are you an artist? Join and share your work.{% endif %}</p>
+    <div class="hero-cta center">
+      {% if g.user %}<a class="btn btn-primary" href="{{ url_for('studio.upload') }}">Upload artwork</a>
+      {% elif allow_registration %}<a class="btn btn-primary" href="{{ url_for('auth.register') }}">Create an artist account</a>{% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if artworks %}
+<section class="wrap section" id="collection">
+  <div class="section-head">
+    <div>
+      <h2 class="section-title">The collection</h2>
+      <p class="muted">{{ total }} published work{{ 's' if total != 1 }}</p>
+    </div>
+    {{ sort_select(sort) }}
+  </div>
+  {% set ptags = popular_tags() %}
+  {% if ptags %}
+  <div class="chips" aria-label="Popular tags">
+    {% for t in ptags %}<a class="chip" href="{{ url_for('gallery.search', tag=t.name) }}">#{{ t.name }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  <div class="grid" data-grid>{% include "partials/grid_items.html" %}</div>
+</section>
+{% endif %}
+{% endblock %}

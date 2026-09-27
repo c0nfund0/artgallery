@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Artists · {{ site_name }}{% endblock %}
+{% block content %}
+<section class="wrap section">
+  <div class="page-head">
+    <p class="eyebrow">The people behind the work</p>
+    <h1 class="page-title">Artists</h1>
+  </div>
+  {% if artists %}
+  <div class="artist-grid">
+    {% for a in artists %}
+    <a class="artist-card" href="{{ url_for('gallery.artist', username=a.username) }}">
+      <div class="artist-cover" data-color="{{ a.cover_color }}">
+        {% if a.cover %}<img src="{{ url_for('gallery.media', key=a.cover, size='thumb') }}" alt="" loading="lazy">{% endif %}
+      </div>
+      <div class="artist-body">
+        <span class="avatar avatar-lg" aria-hidden="true">{{ a.display_name[:1]|upper }}</span>
+        <h2>{{ a.display_name }}</h2>
+        <p class="muted">{{ a.n }} work{{ 's' if a.n != 1 }}</p>
+        {% if a.bio %}<p class="artist-bio">{{ a.bio|truncate(110) }}</p>{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><p>No artists have published work yet.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

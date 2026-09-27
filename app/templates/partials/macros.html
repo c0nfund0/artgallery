@@ -1,0 +1,44 @@
+{% macro card(a, tags=None, show_artist=True, show_status=False) -%}
+<article class="card{% if not a.is_published %} is-draft{% endif %}">
+  <a class="card-link" href="{{ url_for('gallery.artwork', artwork_id=a.id) }}">
+    <div class="card-media" data-color="{{ a.color }}">
+      <img src="{{ url_for('gallery.media', key=a.image_key, size='thumb') }}"
+           alt="{{ a.title }}{% if show_artist %} by {{ a.display_name }}{% endif %}"
+           width="{{ a.width }}" height="{{ a.height }}" loading="lazy" decoding="async">
+    </div>
+    <div class="card-overlay">
+      <h3 class="card-title">{{ a.title }}</h3>
+      {% if show_artist %}<p class="card-artist">{{ a.display_name }}</p>{% endif %}
+      <p class="card-stats">
+        <span title="Appreciations"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.7 5c2 0 3.5 1.1 5.3 3 1.8-1.9 3.3-3 5.3-3 3.4 0 5.5 3.4 4.2 6.7C19.5 16.4 12 21 12 21Z"/></svg>{{ a.like_count }}</span>
+        <span title="Views"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>{{ a.views }}</span>
+      </p>
+    </div>
+    {% if show_status and not a.is_published %}<span class="badge badge-draft">Draft</span>{% endif %}
+    {% if a.is_featured %}<span class="badge badge-featured" title="Featured">★</span>{% endif %}
+  </a>
+</article>
+{%- endmacro %}
+
+{% macro errors_list(errors) -%}
+{% if errors %}
+<div class="alert alert-error" role="alert">
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro sort_select(sort) -%}
+<form class="sort-form" method="get">
+  {% for k, v in request.args.items() if k not in ('sort', 'page', 'partial') %}
+  <input type="hidden" name="{{ k }}" value="{{ v }}">
+  {% endfor %}
+  <label class="sr-only" for="sort">Sort by</label>
+  <select id="sort" name="sort" data-autosubmit>
+    <option value="new" {% if sort == 'new' %}selected{% endif %}>Newest</option>
+    <option value="popular" {% if sort == 'popular' %}selected{% endif %}>Most appreciated</option>
+    <option value="views" {% if sort == 'views' %}selected{% endif %}>Most viewed</option>
+    <option value="old" {% if sort == 'old' %}selected{% endif %}>Oldest</option>
+  </select>
+</form>
+{%- endmacro %}

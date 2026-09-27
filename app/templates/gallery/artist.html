@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import sort_select %}
+{% block title %}{{ artist.display_name }} · {{ site_name }}{% endblock %}
+{% block description %}{{ artist.bio|truncate(150) if artist.bio else 'Artwork by ' ~ artist.display_name }}{% endblock %}
+{% block content %}
+<section class="profile-head">
+  <div class="wrap narrow center">
+    <span class="avatar avatar-xl" aria-hidden="true">{{ artist.display_name[:1]|upper }}</span>
+    <h1 class="page-title">{{ artist.display_name }}</h1>
+    <p class="muted">@{{ artist.username }} · Member since {{ artist.created_at|human_date }}</p>
+    {% if artist.bio %}<p class="profile-bio">{{ artist.bio }}</p>{% endif %}
+    {% if artist.website %}<p><a class="link" href="{{ artist.website }}" rel="nofollow noopener" target="_blank">{{ artist.website|replace('https://', '')|replace('http://', '') }} ↗</a></p>{% endif %}
+    {% if g.user and g.user.id == artist.id %}<p><a class="btn btn-ghost btn-sm" href="{{ url_for('auth.account') }}">Edit profile</a></p>{% endif %}
+  </div>
+</section>
+<section class="wrap section">
+  <div class="section-head">
+    <p class="muted">{{ total }} published work{{ 's' if total != 1 }}</p>
+    {{ sort_select(sort) }}
+  </div>
+  {% if artworks %}
+  <div class="grid" data-grid>{% include "partials/grid_items.html" %}</div>
+  {% else %}
+  <div class="empty"><p>No published work yet.</p></div>
+  {% endif %}
+</section>
+{% endblock %}
