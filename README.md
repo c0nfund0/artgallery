@@ -26,6 +26,7 @@ A self-hosted online art gallery. Visitors browse without an account; artists si
 
 **Security**
 - Passwords hashed with scrypt; CSRF protection on every form; strict Content-Security-Policy (no inline scripts or styles)
+- Upload limits that hold up unattended: 40-megapixel cap checked before decoding (a 400 KB PNG can otherwise expand to 1 GB of RAM), one decode at a time per worker, a 1 GB container memory ceiling, and uploads pause when the data disk has < 512 MB free
 - Login rate limiting, protection against open redirects, and password checks that take the same time whether or not the user exists
 - Every upload is decoded and re-encoded by Pillow to WebP. This strips EXIF/GPS data, rejects files that aren't images, and guards against decompression bombs.
 - Draft images are served only to their owner; published images are served with short cache lifetimes, so unpublishing takes effect quickly
@@ -50,11 +51,33 @@ Run tests: `pytest -q`
 
 ## Production (Docker)
 
+The gallery runs in a container that listens only on `127.0.0.1:8000`; a TLS reverse proxy on the host serves it to the internet. The proxy is mandatory: `compose.yaml` fixes `BEHIND_PROXY` and `SESSION_COOKIE_SECURE` to `true`, so logins only work over HTTPS.
+
+### On the server (`art.luodot.com`, nginx + certbot)
+
 ```bash
+sudo mkdir -p /opt/artgallery && sudo chown $USER /opt/artgallery
+git clone https://github.com/c0nfund0/artgallery /opt/artgallery && cd /opt/artgallery
 cp .env.example .env
+
+# Start the app (pulls ghcr.io/c0nfund0/artgallery:latest; see "private image" below)
 docker compose up -d
-docker compose logs gallery        # shows the one-time setup code
+docker compose logs gallery          # shows the one-time setup code
+
+# Publish it via nginx and get a Let's Encrypt certificate (auto-renewed by certbot's timer)
+sudo cp deploy/nginx/art.luodot.com.conf /etc/nginx/sites-available/art.luodot.com
+sudo ln -s /etc/nginx/sites-available/art.luodot.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d art.luodot.com
+sudo certbot renew --dry-run          # confirms renewal works
+
+# Unattended updates (every 6 h; rolls back if the new version is unhealthy)
+sudo cp deploy/artgallery-update.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now artgallery-update.timer
 ```
+Then open https://art.luodot.com and complete the first-run setup. (`deploy/Caddyfile.example` is an alternative for hosts without nginx.)
+
+**Private image:** while the GitHub repo is private, so is the image. Either make the *package* public (GitHub → Packages → artgallery → Package settings → Change visibility; the repo can stay private), or log the server in once with a token that has `read:packages` — but tokens expire, which silently stops updates. Public package is the right choice for an unattended server.
 
 ### First run
 A fresh install has **no user accounts**. Every page redirects to `/setup`, where you enter:
@@ -80,7 +103,6 @@ Everything that must survive restarts and updates is in **one directory**, `DATA
 docker run --rm -v artgallery_gallery-data:/data -v "$PWD":/backup alpine tar czf /backup/gallery-$(date +%F).tgz -C /data .
 ```
 To keep the data in a host folder instead, change the volume to `./data:/data` in `compose.yaml` and run `sudo chown -R 10001:10001 data`. The container runs as UID 10001.
-Put a TLS-terminating reverse proxy in front (see `deploy/Caddyfile.example`) and set `SESSION_COOKIE_SECURE=true` and `BEHIND_PROXY=true`.
 
 Recover access (create or reset an admin) from the CLI:
 ```bash
@@ -121,10 +143,11 @@ Add a new file such as `app/migrations/002_add_collections.sql`. It runs once on
 | `SETUP_TOKEN` | random, printed to log | First-run setup code |
 | `SECRET_KEY` | auto-generated in data dir | Session signing key; if set, must be 32+ characters |
 | `MAX_UPLOAD_MB` | `25` | Max request size |
+| `MIN_FREE_MB` | `512` | Uploads refused below this much free disk |
+| `WEB_CONCURRENCY` | `2` (compose) | Gunicorn workers |
 | `DATA_DIR` | `./data` (`/data` in Docker) | All persistent state |
-| `SESSION_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
-| `BEHIND_PROXY` | `false` | Trust `X-Forwarded-*` headers |
-| `WEB_CONCURRENCY` | `2×CPU (max 4)` | Gunicorn workers |
+| `SESSION_COOKIE_SECURE` | `false` (`true` in compose) | Only send the session cookie over HTTPS |
+| `BEHIND_PROXY` | `false` (`true` in compose) | Trust one hop of `X-Forwarded-*` headers |
 
 ## Project layout
 ```

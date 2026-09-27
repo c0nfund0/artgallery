@@ -4,7 +4,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from . import models
 from . import settings as site_settings
 from .db import get_db
-from .security import admin_required
+from .security import admin_required, safe_local_url
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -72,5 +72,4 @@ def feature(artwork_id):
         abort(404)
     db.execute("UPDATE artworks SET is_featured = 1 - is_featured WHERE id = ?", (artwork_id,))
     db.commit()
-    target = request.form.get("next", "")
-    return redirect(target if target.startswith("/") and not target.startswith("//") else url_for("admin.index"))
+    return redirect(safe_local_url(request.form.get("next"), url_for("admin.index")))

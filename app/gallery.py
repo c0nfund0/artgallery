@@ -11,7 +11,7 @@ from flask import (
 from . import models
 from .db import get_db
 from .images import RENDITIONS
-from .security import VISITOR_COOKIE
+from .security import VISITOR_COOKIE, client_ip, like_limiter
 
 bp = Blueprint("gallery", __name__)
 
@@ -128,6 +128,8 @@ def like(artwork_id):
     art = models.get_artwork(artwork_id)
     if not art or not art["is_published"]:
         abort(404)
+    if not like_limiter.hit(client_ip()):
+        abort(429)
     visitor = request.cookies.get(VISITOR_COOKIE) or secrets.token_urlsafe(16)
     db = get_db()
     existing = db.execute(
