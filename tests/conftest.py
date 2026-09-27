@@ -27,6 +27,18 @@ def make_image(fmt="PNG", size=(320, 200), color=(180, 70, 40)):
     return buf
 
 
+def setup_admin(client, username="alice", password="correct-horse-battery", allow_registration=True):
+    """Complete first-run setup; the setup code is read from the data dir as an operator would from the log."""
+    from pathlib import Path
+
+    token = (Path(client.application.config["DATA_DIR"]) / "setup_token").read_text().strip()
+    data = {"setup_token": token, "site_name": "Test Gallery", "username": username,
+            "display_name": username.title(), "password": password, "password2": password}
+    if allow_registration:
+        data["allow_registration"] = "1"
+    return client.post("/setup", data=data)
+
+
 def register(client, username="alice", password="correct-horse-battery"):
     return client.post(
         "/register",

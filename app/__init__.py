@@ -34,8 +34,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         DATA_DIR=str(data_dir),
         DATABASE=str(data_dir / "gallery.db"),
         UPLOAD_DIR=str(data_dir / "uploads"),
-        SITE_NAME=os.environ.get("SITE_NAME", "Atelier"),
-        ALLOW_REGISTRATION=os.environ.get("ALLOW_REGISTRATION", "true").lower() == "true",
+        BACKUP_DIR=str(data_dir / "backups"),
         MAX_CONTENT_LENGTH=int(os.environ.get("MAX_UPLOAD_MB", "25")) * 1024 * 1024,
         PER_PAGE=24,
         SESSION_COOKIE_HTTPONLY=True,
@@ -58,7 +57,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     db.init_app(app)
     security.init_app(app)
 
-    from . import admin, auth, gallery, models, studio
+    from . import admin, auth, gallery, models, setup, studio
 
     app.jinja_env.globals["popular_tags"] = models.popular_tags
 
@@ -66,6 +65,8 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(gallery.bp)
     app.register_blueprint(studio.bp)
     app.register_blueprint(admin.bp)
+    app.register_blueprint(setup.bp)
+    setup.announce_if_needed(app)
 
     @app.template_global()
     def page_url(page: int) -> str:

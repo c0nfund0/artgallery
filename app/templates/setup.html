@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import errors_list %}
+{% block title %}Set up your gallery{% endblock %}
+{% block body_class %}auth-page setup-page{% endblock %}
+{% block content %}
+<div class="auth-card setup-card">
+  <p class="eyebrow">First-time setup</p>
+  <h1 class="page-title">Open your gallery</h1>
+  <p class="muted">Create the administrator account. Artist sign-ups can be opened now or later from the admin page.</p>
+  {{ errors_list(errors) }}
+  <form method="post" class="form">
+    {{ csrf_field() }}
+    <label class="field"><span>Setup code</span>
+      <input name="setup_token" required autocomplete="off" spellcheck="false" autofocus
+             placeholder="xxxxxx-xxxxxx-xxxxxx" value="{{ form.get('setup_token', '') }}">
+      <small>Printed in the server log on startup (e.g. <code>docker compose logs gallery</code>).</small></label>
+    <label class="field"><span>Gallery name</span>
+      <input name="site_name" maxlength="60" required value="{{ form.get('site_name', site_name) }}"></label>
+    <hr class="divider">
+    <div class="field-row">
+      <label class="field"><span>Admin username</span>
+        <input name="username" autocomplete="username" required pattern="[a-z0-9_]{3,30}" value="{{ form.get('username', '') }}"></label>
+      <label class="field"><span>Display name</span>
+        <input name="display_name" autocomplete="name" maxlength="60" value="{{ form.get('display_name', '') }}"></label>
+    </div>
+    <div class="field-row">
+      <label class="field"><span>Password</span>
+        <input name="password" type="password" autocomplete="new-password" minlength="10" required></label>
+      <label class="field"><span>Confirm password</span>
+        <input name="password2" type="password" autocomplete="new-password" minlength="10" required></label>
+    </div>
+    <label class="switch"><input type="checkbox" name="allow_registration" value="1" {% if form.get('allow_registration') %}checked{% endif %}>
+      <span class="switch-ui" aria-hidden="true"></span><span>Let artists create their own accounts</span></label>
+    <button class="btn btn-primary btn-block" type="submit">Create admin &amp; open gallery</button>
+  </form>
+</div>
+{% endblock %}

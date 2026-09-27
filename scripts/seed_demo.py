@@ -62,12 +62,21 @@ def art(seed, w, h):
 
 def main():
     app = create_app({"CSRF_DISABLED": True, "TESTING": True})
+    with app.app_context():
+        from app.db import get_db
+        if get_db().execute("SELECT 1 FROM users").fetchone():
+            sys.exit("Data directory already has users; seed a fresh DATA_DIR instead.")
     c = app.test_client()
     artists = [("mira", "Mira Kallio"), ("jonas", "Jonas Berg"), ("aino", "Aino Laine")]
     n = 0
-    for username, name in artists:
+    for i, (username, name) in enumerate(artists):
         pw = "demo-password-123"
-        c.post("/register", data={"username": username, "display_name": name, "password": pw, "password2": pw})
+        account = {"username": username, "display_name": name, "password": pw, "password2": pw}
+        if i == 0:  # first-run setup creates the admin
+            token = (Path(app.config["DATA_DIR"]) / "setup_token").read_text().strip()
+            c.post("/setup", data={**account, "setup_token": token, "site_name": "Atelier", "allow_registration": "1"})
+        else:
+            c.post("/register", data=account)
         c.post("/login", data={"username": username, "password": pw})
         c.post("/account", data={"action": "profile", "display_name": name,
                                  "bio": f"{name.split()[0]} works between colour and silence, painting the northern light.",

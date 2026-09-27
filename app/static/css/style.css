@@ -382,6 +382,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   radial-gradient(900px 500px at 110% 110%, color-mix(in srgb, var(--accent-soft) 60%, transparent), transparent 60%); }
 .auth-card { width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: clamp(24px, 5vw, 44px); box-shadow: var(--shadow-lg); }
 .auth-card .page-title { margin-bottom: 24px; font-size: 2.2rem; }
+.setup-card { max-width: 600px; }
+.setup-card > .muted { margin: -12px 0 24px; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; background: var(--bg); padding: .1em .35em; border-radius: 4px; }
 .auth-alt { text-align: center; margin: 20px 0 0; font-size: .93rem; }
 .auth-alt + .auth-alt { margin-top: 6px; }
 

@@ -2,6 +2,7 @@
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from . import models
+from . import settings as site_settings
 from .db import get_db
 from .security import admin_required
 
@@ -23,6 +24,22 @@ def index():
     return render_template(
         "admin/index.html", users=users, artworks=artworks, total=total, q=q, page=page,
     )
+
+
+@bp.post("/settings")
+@admin_required
+def update_settings():
+    site_name = request.form.get("site_name", "").strip()[:60]
+    if not site_name:
+        flash("Gallery name is required.", "error")
+        return redirect(url_for("admin.index"))
+    site_settings.set_many({
+        "site_name": site_name,
+        "allow_registration": "1" if request.form.get("allow_registration") == "1" else "0",
+    })
+    get_db().commit()
+    flash("Settings saved.", "success")
+    return redirect(url_for("admin.index"))
 
 
 @bp.post("/users/<int:user_id>")

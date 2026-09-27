@@ -16,7 +16,7 @@ def test_new_migration_applied_with_backup(tmp_path, monkeypatch):
     conn = db.connect(path)
     assert db.current_version(conn) == 999
     assert "location" in [r[1] for r in conn.execute("PRAGMA table_info(artworks)")]
-    assert list(tmp_path.glob("g.db.bak-v*")), "a backup is taken before migrating"
+    assert list((tmp_path / "backups").glob("g.db.v*.bak")), "a backup is taken before migrating"
 
 
 def test_failed_migration_rolls_back(tmp_path, monkeypatch):

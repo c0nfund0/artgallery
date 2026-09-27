@@ -8,6 +8,18 @@
   </div>
 
   <div class="panel">
+    <h2 class="panel-title">Gallery settings</h2>
+    <form method="post" action="{{ url_for('admin.update_settings') }}" class="form settings-form">
+      {{ csrf_field() }}
+      <label class="field"><span>Gallery name</span>
+        <input name="site_name" maxlength="60" required value="{{ site_name }}"></label>
+      <label class="switch"><input type="checkbox" name="allow_registration" value="1" {% if allow_registration %}checked{% endif %}>
+        <span class="switch-ui" aria-hidden="true"></span><span>Let artists create their own accounts</span></label>
+      <div class="form-actions"><button class="btn btn-primary btn-sm" type="submit">Save settings</button></div>
+    </form>
+  </div>
+
+  <div class="panel">
     <h2 class="panel-title">Users</h2>
     <div class="table-wrap">
       <table class="table">

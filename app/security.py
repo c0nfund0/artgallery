@@ -9,6 +9,8 @@ from collections import defaultdict, deque
 from flask import abort, g, redirect, request, session, url_for
 from markupsafe import Markup
 
+from . import settings as site_settings
+
 VISITOR_COOKIE = "visitor"
 
 
@@ -28,6 +30,16 @@ def init_app(app):
                 g.user = user
             else:
                 session.clear()
+
+    @app.before_request
+    def require_setup():
+        # Until an admin exists, every page leads to the first-run setup.
+        from .setup import setup_needed
+
+        if request.endpoint in ("setup.index", "static", "healthz"):
+            return
+        if setup_needed():
+            return redirect(url_for("setup.index"))
 
     @app.before_request
     def check_csrf():
@@ -61,7 +73,7 @@ def init_app(app):
                 f'<input type="hidden" name="csrf_token" value="{csrf_token()}">'
             ),
             "csrf_token": csrf_token,
-            "site_name": app.config["SITE_NAME"],
+            "site_name": site_settings.get("site_name"),
             "allow_registration": registration_open(),
         }
 
@@ -78,14 +90,8 @@ def csrf_token() -> str:
 
 
 def registration_open() -> bool:
-    from flask import current_app
-
-    from .db import get_db
-
-    if current_app.config["ALLOW_REGISTRATION"]:
-        return True
-    # Always allow the very first account (becomes admin).
-    return get_db().execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+    """Public artist sign-up, toggled by admins. The admin itself is created via /setup."""
+    return site_settings.get("allow_registration") == "1"
 
 
 def login_required(view):

@@ -4,7 +4,6 @@ Migrations live in app/migrations/NNN_description.sql and are applied in order
 on startup. Each migration runs in a transaction; a backup of the database is
 taken before any pending migration is applied, so upgrades are safe to automate.
 """
-import shutil
 import sqlite3
 import time
 from pathlib import Path
@@ -50,7 +49,7 @@ def pending_migrations(conn: sqlite3.Connection) -> list[tuple[int, Path]]:
     return found
 
 
-def migrate(db_path: str, logger=None) -> int:
+def migrate(db_path: str, logger=None, backup_dir: str | None = None) -> int:
     """Apply pending migrations. Returns the number applied."""
     conn = connect(db_path)
     try:
@@ -58,9 +57,12 @@ def migrate(db_path: str, logger=None) -> int:
         if not pending:
             return 0
         if current_version(conn) > 0:
-            backup = f"{db_path}.bak-v{current_version(conn)}-{int(time.time())}"
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            shutil.copy2(db_path, backup)
+            out = Path(backup_dir) if backup_dir else Path(db_path).parent / "backups"
+            out.mkdir(parents=True, exist_ok=True)
+            backup = out / f"{Path(db_path).name}.v{current_version(conn)}-{int(time.time())}.bak"
+            # Online backup API: consistent even with WAL and concurrent readers.
+            with sqlite3.connect(backup) as dest:
+                conn.backup(dest)
             if logger:
                 logger.info("Database backed up to %s", backup)
         for num, path in pending:
@@ -76,7 +78,7 @@ def migrate(db_path: str, logger=None) -> int:
 
 def init_app(app):
     app.teardown_appcontext(close_db)
-    migrate(app.config["DATABASE"], app.logger)
+    migrate(app.config["DATABASE"], app.logger, app.config.get("BACKUP_DIR"))
     app.cli.add_command(create_admin_command)
     app.cli.add_command(migrate_command)
 
@@ -84,7 +86,7 @@ def init_app(app):
 @click.command("migrate")
 def migrate_command():
     """Apply pending database migrations."""
-    n = migrate(current_app.config["DATABASE"])
+    n = migrate(current_app.config["DATABASE"], backup_dir=current_app.config.get("BACKUP_DIR"))
     click.echo(f"Applied {n} migration(s).")
 
 

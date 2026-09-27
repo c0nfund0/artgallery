@@ -1,21 +1,56 @@
 name: Dependabot auto-merge
 
-on: pull_request
+# Runs after CI finishes on a pull request. Merges Dependabot patch/minor
+# updates only when CI passed on the PR's current head commit; major updates
+# are left for a human. (Works without branch protection, which private repos
+# on the free plan can't use.)
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
-  automerge:
-    if: github.actor == 'dependabot[bot]'
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
-      - id: meta
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-      - name: Enable auto-merge for patch and minor updates
-        if: steps.meta.outputs.update-type != 'version-update:semver-major'
-        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Merge if safe
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          pr=$(gh pr list -R "$REPO" --head "$HEAD_BRANCH" --state open \
+                 --json number,headRefOid,author --jq '.[0] // empty')
+          [ -n "$pr" ] || { echo "No open PR for $HEAD_BRANCH"; exit 0; }
+          num=$(jq -r .number <<<"$pr")
+          author=$(jq -r .author.login <<<"$pr")
+          head=$(jq -r .headRefOid <<<"$pr")
+
+          [ "$author" = "app/dependabot" ] || { echo "PR #$num not by Dependabot ($author)"; exit 0; }
+          [ "$head" = "$HEAD_SHA" ] || { echo "PR #$num has new commits since this CI run"; exit 0; }
+
+          # Dependabot records the semver level in its commit message.
+          msg=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq .commit.message)
+          if ! grep -q 'update-type: version-update:semver-' <<<"$msg"; then
+            echo "PR #$num: update type unknown, leaving for review"; exit 0
+          fi
+          if grep -q 'update-type: version-update:semver-major' <<<"$msg"; then
+            gh pr comment "$num" -R "$REPO" --body "Major version update — needs manual review before merging."
+            exit 0
+          fi
+
+          gh pr merge "$num" -R "$REPO" --squash --match-head-commit "$HEAD_SHA"
+          # Merges made with GITHUB_TOKEN don't trigger push workflows, so start
+          # CI on main explicitly; a green run then triggers the release.
+          gh workflow run ci.yml -R "$REPO" --ref main

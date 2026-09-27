@@ -19,7 +19,8 @@ A self-hosted online art gallery. Visitors browse without an account; artists si
 - Studio dashboard with stats (works, published, drafts, views, appreciations)
 - Profile (display name, bio, website) and password change (signs out other sessions)
 
-**Admin** (the first account registered becomes admin)
+**Admin** (created in the first-run setup, no default accounts exist)
+- Gallery settings: name, open or closed artist sign-up
 - Manage users (make admin, disable). Disabled artists' work is hidden.
 - See, publish/unpublish, edit and feature any artwork on the home page
 
@@ -43,18 +44,45 @@ python scripts/seed_demo.py        # optional: demo artists + generated artwork
 flask --app wsgi run --debug       # http://127.0.0.1:5000
 ```
 Demo login: `mira` / `demo-password-123` (admin). Data lives in `./data` (set with `DATA_DIR`).
+Skip the seed script to try the real first-run setup; the setup code is printed in the terminal.
 
 Run tests: `pytest -q`
 
 ## Production (Docker)
 
 ```bash
-cp .env.example .env               # set GALLERY_IMAGE, SITE_NAME, etc.
+cp .env.example .env
 docker compose up -d
+docker compose logs gallery        # shows the one-time setup code
 ```
+
+### First run
+A fresh install has **no user accounts**. Every page redirects to `/setup`, where you enter:
+- the **setup code** from the server log (or your own, preset with `SETUP_TOKEN` in `.env`)
+- the gallery name, and the admin username and password
+- whether artists may sign up themselves
+
+The setup code keeps a stranger from claiming a newly started public server before you do. Once the admin exists, `/setup` is gone for good and the code file is deleted. Sign-ups and the gallery name can be changed later under **Admin → Gallery settings**.
+
+### Persistence
+Everything that must survive restarts and updates is in **one directory**, `DATA_DIR`. In Docker this is the `gallery-data` volume mounted at `/data`. The container itself is read-only and disposable.
+
+| Path in `/data` | Contents |
+|---|---|
+| `gallery.db` (+ `-wal`, `-shm`) | Users, artworks, tags, likes, settings |
+| `uploads/` | Image renditions (`<key>_full/medium/thumb.webp`) |
+| `secret_key` | Session signing key, generated on first start (unless `SECRET_KEY` is set) |
+| `backups/` | Automatic DB snapshot taken before every schema migration |
+| `setup_token` | Only until first-run setup completes |
+
+**Back up** by copying the volume, e.g.:
+```bash
+docker run --rm -v artgallery_gallery-data:/data -v "$PWD":/backup alpine tar czf /backup/gallery-$(date +%F).tgz -C /data .
+```
+To keep the data in a host folder instead, change the volume to `./data:/data` in `compose.yaml` and run `sudo chown -R 10001:10001 data`. The container runs as UID 10001.
 Put a TLS-terminating reverse proxy in front (see `deploy/Caddyfile.example`) and set `SESSION_COOKIE_SECURE=true` and `BEHIND_PROXY=true`.
 
-Create or reset an admin from the CLI:
+Recover access (create or reset an admin) from the CLI:
 ```bash
 docker compose exec gallery flask --app wsgi create-admin yourname
 ```
@@ -67,8 +95,9 @@ Every layer updates itself:
 
 | Component | How it stays patched |
 |---|---|
-| Python packages | Pinned in `requirements.txt`. **Dependabot** opens PRs daily. Patch and minor updates **auto-merge** once CI passes (`dependabot-automerge.yml`); major updates wait for review. |
-| Base image (Python/Debian) | Dependabot bumps the `FROM` tag. `release.yml` also **rebuilds the image weekly without cache**, running `apt-get upgrade`, so OS security fixes land even without a tag change. |
+| Python packages | Pinned in `requirements.txt`. **Dependabot** opens PRs daily. Patch and minor updates **auto-merge** once CI passes on the PR's exact commit (`dependabot-automerge.yml`). Major updates get a comment and wait for review. |
+| Base image (Python/Debian) | Dependabot bumps the `FROM` tag. The image is also **rebuilt weekly without cache**, running `apt-get upgrade`, so OS security fixes land even without a tag change. |
+| Releases | `release.yml` runs **only after CI passes on `main`**. It builds the image, smoke-tests and scans that exact image, and only then pushes it to `ghcr.io`. A failing test or a fixable HIGH/CRITICAL vulnerability means nothing is published. |
 | GitHub Actions | Pinned to commit SHAs (supply-chain safety). Dependabot updates them weekly. |
 | Vulnerability detection | CI runs **daily**: `pip-audit` on Python deps and **Trivy** on the built image. It fails on fixable HIGH/CRITICAL issues. |
 | Database schema | Versioned migrations in `app/migrations/NNN_*.sql` are applied automatically on startup. Each runs in a transaction, and a DB backup is taken first. |
@@ -80,7 +109,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now artgallery-update.ti
 ```
 For the host OS, enable `unattended-upgrades` (Debian/Ubuntu).
 
-**Setup checklist for the automation:** push to GitHub. In *Settings → General*, enable *Allow auto-merge*. Protect `main` and require the `CI` checks. Set `GALLERY_IMAGE=ghcr.io/<you>/artgallery:latest` in `.env` on the server.
+**Setup notes:** auto-merge is done by a workflow instead of GitHub's built-in auto-merge, because branch protection isn't available for private repos on the free plan. Because the repo is private, the image is private too. Log the server in once with a token that has `read:packages`: `echo <token> | docker login ghcr.io -u c0nfund0 --password-stdin`.
 
 ### Changing the database schema
 Add a new file such as `app/migrations/002_add_collections.sql`. It runs once on the next start.
@@ -89,11 +118,10 @@ Add a new file such as `app/migrations/002_add_collections.sql`. It runs once on
 
 | Variable | Default | |
 |---|---|---|
-| `SITE_NAME` | `Atelier` | Shown in header and titles |
+| `SETUP_TOKEN` | random, printed to log | First-run setup code |
 | `SECRET_KEY` | auto-generated in data dir | Session signing key |
-| `ALLOW_REGISTRATION` | `true` | Open artist sign-up (first account is always allowed) |
 | `MAX_UPLOAD_MB` | `25` | Max request size |
-| `DATA_DIR` | `./data` (`/data` in Docker) | Database + images |
+| `DATA_DIR` | `./data` (`/data` in Docker) | All persistent state |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
 | `BEHIND_PROXY` | `false` | Trust `X-Forwarded-*` headers |
 | `WEB_CONCURRENCY` | `2×CPU (max 4)` | Gunicorn workers |
@@ -108,6 +136,7 @@ app/
   models.py        queries (search, tags, permissions)
   gallery.py       public views      studio.py   artist views
   auth.py          login/register    admin.py    admin views
+  setup.py         first-run admin setup         settings.py  DB-backed site settings
   migrations/      NNN_*.sql
   templates/  static/
 deploy/            auto-update script, systemd units, Caddy example

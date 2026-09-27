@@ -1,12 +1,14 @@
 name: Release image
 
-# Publishes ghcr.io/<owner>/artgallery:latest on every push to main and weekly,
-# so servers running deploy/auto-update.sh pick up dependency and OS patches.
+# Publishes ghcr.io/<owner>/artgallery only after CI has passed on main.
+# The exact image that gets pushed is smoke-tested and vulnerability-scanned
+# first. CI runs daily on a schedule; on Mondays that scheduled run also
+# triggers a clean rebuild here so OS security patches reach the image.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-  schedule:
-    - cron: "0 3 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -14,25 +16,70 @@ permissions:
   packages: write
 
 jobs:
-  publish:
+  gate:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event.workflow_run.event))
+    outputs:
+      release: ${{ steps.decide.outputs.release }}
+      no_cache: ${{ steps.decide.outputs.no_cache }}
+    steps:
+      - id: decide
+        env:
+          TRIGGER: ${{ github.event.workflow_run.event || 'manual' }}
+        run: |
+          if [ "$TRIGGER" = schedule ]; then
+            # Daily CI keeps checking for CVEs; only rebuild weekly (Monday).
+            if [ "$(date -u +%u)" = 1 ]; then echo "release=true" >> "$GITHUB_OUTPUT"; else echo "release=false" >> "$GITHUB_OUTPUT"; fi
+            echo "no_cache=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "no_cache=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/artgallery
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with: { python-version: "3.14" }
-      - run: pip install -r requirements-dev.txt && pytest -q
+        with:
+          ref: ${{ env.SHA }}
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build candidate
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          pull: true
+          no-cache: ${{ needs.gate.outputs.no_cache == 'true' }}
+          load: true
+          tags: artgallery:candidate
+      - name: Smoke test
+        run: |
+          docker run -d --name gallery-smoke -p 8000:8000 artgallery:candidate
+          for i in $(seq 1 30); do curl -fs localhost:8000/healthz && exit 0; sleep 1; done
+          docker logs gallery-smoke; exit 1
+      - name: Scan candidate
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: artgallery:candidate
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          pull: true
-          no-cache: ${{ github.event_name == 'schedule' }}
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/artgallery:latest
-            ghcr.io/${{ github.repository_owner }}/artgallery:${{ github.sha }}
+      - name: Push
+        run: |
+          for tag in latest "$SHA"; do
+            docker tag artgallery:candidate "$IMAGE:$tag"
+            docker push "$IMAGE:$tag"
+          done

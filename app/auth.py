@@ -22,7 +22,22 @@ def _safe_next(target: str | None) -> str:
     return url_for("studio.dashboard")
 
 
-def _start_session(user):
+def validate_new_account(form) -> tuple[str, str, str, list[str]]:
+    """Shared by registration and first-run setup."""
+    errors = []
+    username = form.get("username", "").strip().lower()
+    display_name = form.get("display_name", "").strip()[:60] or username
+    password = form.get("password", "")
+    if not USERNAME_RE.match(username):
+        errors.append("Username must be 3–30 characters: lowercase letters, numbers, underscore.")
+    if len(password) < 10:
+        errors.append("Password must be at least 10 characters.")
+    if password != form.get("password2", ""):
+        errors.append("Passwords do not match.")
+    return username, display_name, password, errors
+
+
+def start_session(user):
     session.clear()
     session.permanent = True
     session["uid"] = user["id"]
@@ -43,7 +58,7 @@ def login():
             "SELECT * FROM users WHERE username = ? AND is_active = 1", (username,)
         ).fetchone()
         if user and check_password_hash(user["password_hash"], password):
-            _start_session(user)
+            start_session(user)
             flash(f"Welcome back, {user['display_name']}.", "success")
             return redirect(_safe_next(request.args.get("next")))
         if not user:
@@ -62,28 +77,19 @@ def register():
     if request.method == "POST":
         if not login_limiter.hit(client_ip()):
             abort(429)
-        username = form.get("username", "").strip().lower()
-        display_name = form.get("display_name", "").strip()[:60] or username
-        password = form.get("password", "")
-        if not USERNAME_RE.match(username):
-            errors.append("Username must be 3–30 characters: lowercase letters, numbers, underscore.")
-        if len(password) < 10:
-            errors.append("Password must be at least 10 characters.")
-        if password != form.get("password2", ""):
-            errors.append("Passwords do not match.")
+        username, display_name, password, errors = validate_new_account(form)
         db = get_db()
         if not errors and db.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
             errors.append("That username is taken.")
         if not errors:
-            first = db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
             cur = db.execute(
-                "INSERT INTO users (username, display_name, password_hash, is_admin) VALUES (?, ?, ?, ?)",
-                (username, display_name, generate_password_hash(password), int(first)),
+                "INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)",
+                (username, display_name, generate_password_hash(password)),
             )
             db.commit()
             user = db.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-            _start_session(user)
-            flash("Your studio is ready. Upload your first piece!" + (" You are the admin." if first else ""), "success")
+            start_session(user)
+            flash("Your studio is ready. Upload your first piece!", "success")
             return redirect(url_for("studio.dashboard"))
     return render_template("auth/register.html", errors=errors, form=form)
 
@@ -133,7 +139,7 @@ def account():
                 )
                 db.commit()
                 user = db.execute("SELECT * FROM users WHERE id = ?", (g.user["id"],)).fetchone()
-                _start_session(user)  # other sessions are invalidated
+                start_session(user)  # other sessions are invalidated
                 flash("Password changed. Other sessions have been signed out.", "success")
                 return redirect(url_for("auth.account"))
     return render_template("auth/account.html", errors=errors)
