@@ -16,7 +16,11 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# pip is only needed at build time; removing it drops its vendored libraries
+# (and their CVEs) from the runtime image.
+RUN pip install -r requirements.txt \
+ && python -m pip uninstall -y pip \
+ && rm -rf /usr/local/lib/python3*/ensurepip
 
 COPY app ./app
 COPY wsgi.py gunicorn.conf.py ./
