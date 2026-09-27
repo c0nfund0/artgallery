@@ -34,9 +34,9 @@ jobs:
         run: docker build --pull -t artgallery:ci .
       - name: Smoke test
         run: |
-          docker run -d --name g -p 8000:8000 artgallery:ci
+          docker run -d --name gallery-smoke -p 8000:8000 artgallery:ci
           for i in $(seq 1 30); do curl -fs localhost:8000/healthz && exit 0; sleep 1; done
-          docker logs g; exit 1
+          docker logs gallery-smoke; exit 1
       - name: Scan image for OS/library vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

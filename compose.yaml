@@ -2,7 +2,7 @@ services:
   gallery:
     # Use the image built by CI (auto-rebuilt weekly and on every dependency update),
     # or comment `image` and use `build: .` to build locally.
-    image: ${GALLERY_IMAGE:-ghcr.io/OWNER/artgallery:latest}
+    image: ${GALLERY_IMAGE:-ghcr.io/c0nfund0/artgallery:latest}
     build: .
     restart: unless-stopped
     ports:
