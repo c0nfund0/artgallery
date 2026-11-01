@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Base image tag is tracked by Dependabot; the image is also rebuilt weekly
 # (see .github/workflows/release.yml) so OS security patches land automatically.
-FROM python:3.14-slim AS base
+FROM python:3.15-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
